@@ -1,0 +1,35 @@
+*{outline: 1px solid red;}
+html{min-height: 100%;}
+html, body{
+	display: flex; 
+	flex-direction: column; 
+	padding:0; 
+	margin:0;
+}
+body{
+	flex: auto;
+	font-family: 'Open Sans', sans-serif;
+}
+#header, #main{
+	width: 100%;
+	max-width: 1520px;
+	min-width: 430px;
+	margin:auto;
+	box-sizing: border-box;
+}
+#main {
+	flex-grow: 1;
+	display: flex;
+}
+#main .middle{
+	flex-grow: 1;
+	max-width: 80%;
+	padding: 25px;
+}
+#main .right{
+	flex-grow: 1;
+	min-width: 200px;
+	max-width:20%;
+	padding: 25px 0;
+}
+h1{padding: 0 25px}
