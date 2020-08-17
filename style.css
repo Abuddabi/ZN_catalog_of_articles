@@ -1,4 +1,4 @@
-*{outline: 1px solid red;}
+/**{outline: 1px solid red;}*/
 html{min-height: 100%;}
 html, body{
 	display: flex; 
@@ -17,6 +17,8 @@ body{
 	margin:auto;
 	box-sizing: border-box;
 }
+#header a{text-decoration:none;}
+#header a:hover>h1{color:blue;}
 #main {
 	flex-grow: 1;
 	display: flex;
@@ -32,4 +34,20 @@ body{
 	max-width:20%;
 	padding: 25px 0;
 }
-h1{padding:0 25px;margin-bottom:0;}
+h1{padding:0 25px;margin-bottom:0;color:black;}
+.pag-active{background: yellow;}
+.delete{margin-left: 25px;}
+.success{
+	border:3px solid green;
+	box-sizing:border-box;
+	background:#46ec46;
+	margin:0 0 10px;
+	padding:5px;
+}
+.error{
+	border:3px solid red;
+	box-sizing:border-box;
+	background:#e95a5a;
+	margin:0 0 10px;
+	padding:5px;
+}
