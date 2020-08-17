@@ -14,7 +14,6 @@ function get_articles_list($path_to_articles, $page, $per_page = 10)
 	$per_page; //число статей на страницу
 	$start = ($page-1)*$per_page;
 	// $finish = $start+$per_page-1;
-
 	$articles = [];
 	if ($handle = opendir($path_to_articles)) {
 	    while (false !== ($entry = readdir($handle))) {
@@ -24,17 +23,29 @@ function get_articles_list($path_to_articles, $page, $per_page = 10)
 	        		$modification_date = filemtime($path_to_articles.'/'.$entry); //Дата изменения файла
 	        		$articles[$modification_date]['f_name'] = $entry; //название файла
 	        		$articles[$modification_date]['article_name'] = fgets($fopen); //Название статьи - первая строка файла 
-	        		fclose($fopen);	        		
+	        		fclose($fopen);
 	        	} else { /* ошибка чтения файла */ }
 	        } else { /* ничего не делать */ }
 	    }
 	    closedir($handle);
 	} else { /* ошибка открытия папки */ }
-	$articles_count = count($articles); // Всего статей
 	krsort($articles); //массив статей, отсортированный по дате изменения в порядке убывания (недавно измененные - первые)
 	$articles = array_slice($articles, $start, $per_page); //оcтавляем только 10 записей
 
-	return ['articles'=>$articles,'articles_count'=>$articles_count,];
+	return $articles;
+}
+
+function get_files_count($path_to_dir)
+{
+	$dir = opendir($path_to_dir);
+	$count = 0;
+	while (false !== ($file = readdir($dir))){
+	    if($file == '.' || $file == '..' || is_dir($path_to_dir.'/'. $file)){
+	        continue;
+	    } else $count++;
+	}
+
+	return $count;
 }
 
 function get_one_article($path_to_file)
@@ -42,15 +53,27 @@ function get_one_article($path_to_file)
 	$article = [];
 	$fopen = fopen($path_to_file, 'r');
 	if ($fopen) {
-		$article['creation_date'] = date('Y-m-d', basename($path_to_file, '.txt')); //Дата создания файла
-		$article['modification_date'] = date('Y-m-d', filemtime($path_to_file)); //Дата изменения файла
 		$article['article_name'] = fgets($fopen); //Название статьи - первая строка файла
 		$tmp_text = file_get_contents($path_to_file);
 		$article['article_text'] = mb_substr($tmp_text, mb_strlen($article['article_name'])); //Вырезаем 1ю строку
 		fclose($fopen);	        		
 	} else { /* ошибка чтения файла */ }
+	$article['modification_date'] = date('Y-m-d', filemtime($path_to_file)); //Дата изменения файла
+	$article['creation_date'] = date('Y-m-d', filectime($path_to_file)); //Дата создания файла
 
 	return $article;
+}
+
+function save_article($path_to_articles)
+{
+	$new_f_name = (get_files_count($path_to_articles)+1).'.txt';
+	time().'.txt';
+	$article_name =  $_POST['article_name'];
+	// Объединяем Название статьи и текст
+	$article = $article_name ."\n". file_get_contents($_FILES['file']['tmp_name']);
+	$result = file_put_contents($path_to_articles.'/'.$new_f_name, $article);
+	
+	return $result;
 }
 
 if (!empty($_GET['show'])) { //вывод 1 статьи
@@ -62,11 +85,7 @@ if (!empty($_GET['show'])) { //вывод 1 статьи
 	$title .= ' | Добавление новой статьи';
 	$h1 = 'Добавление статьи';
 } elseif (!empty($_POST['add_article'])) { //Обработка формы (добавление статьи)
-	$new_f_name = time().'.txt';
-	$article_name =  $_POST['article_name'];
-	// Объединяем Название статьи и текст
-	$article = $article_name ."\n". file_get_contents($_FILES['file']['tmp_name']);
-	$result = file_put_contents($path_to_articles.'/'.$new_f_name, $article);
+	$result = save_article($path_to_articles);
 	if ($result) $msg = 'Статья успешно добавлена'; // РЕАЛИЗОВАТЬ КУКИ ИЛИ СЕССИЮ
 	else $msg = 'Ошибка добавления статьи';
 	// echo '<pre>'; var_dump($_POST); die();
@@ -75,8 +94,9 @@ if (!empty($_GET['show'])) { //вывод 1 статьи
 	$h1 = 'Статьи';
 	$page = $_GET['page'] ?? 1; // $page = $_GET['page'] если он установлен, иначе = 1
 	$per_page = 10; //число статей на страницу
-	$articles_arr = get_articles_list($path_to_articles, $page, $per_page);
-	$numb_of_pages = ceil($articles_arr['articles_count']/$per_page); //количество страниц
+	$articles = get_articles_list($path_to_articles, $page, $per_page);
+	$articles_count = get_files_count($path_to_articles);
+	$numb_of_pages = ceil($articles_count/$per_page); //количество страниц
 }
 
 ?>
@@ -122,7 +142,7 @@ if (!empty($_GET['show'])) { //вывод 1 статьи
 				</form>
 			<?php
 			} else { // вывод Главной страницы
-				foreach ($articles_arr['articles'] as $article) { ?>
+				foreach ($articles as $article) { ?>
 					<a href="index.php?show=<?=$article['f_name'];?>"><?=$article['article_name'];?></a><br>
 				<?php } //ПАГИНАЦИЯ ?>
 				<p>Страницы: 
@@ -131,7 +151,7 @@ if (!empty($_GET['show'])) { //вывод 1 статьи
 					<a href="index.php?page=<?=$i;?>"><?=$i;?></a>
 				<?php } ?>
 				</p>
-				<div>Всего статей: <?=$articles_arr['articles_count'];?></div>
+				<div>Всего статей: <?=$articles_count;?></div>
 			<?php } ?>
 		</div>
 		<div class="right">
