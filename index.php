@@ -1,12 +1,13 @@
 <?php
 // $start = microtime(true);
 session_start();
+// echo '<pre>'; var_dump($_POST); var_dump($_FILES); die();
 header('Content-type: text/html; charset=UTF-8');
 error_reporting(E_ALL);
 date_default_timezone_set('Europe/Moscow');
 
 define('ROOT_DIR', dirname(__FILE__));
-$path_to_articles = ROOT_DIR . '/articles';
+$path_to_articles = ROOT_DIR . '/texts';
 $title = 'Каталог статей';
 
 function get_articles_list($path_to_articles, $page, $per_page = 10) //выдает список статей на Главную
@@ -45,6 +46,7 @@ function get_files_count($path_to_dir) //считает количество ф�
 	        continue;
 	    } else $count++;
 	}
+	closedir($dir);
 
 	return $count;
 }
@@ -54,26 +56,49 @@ function get_one_article($path_to_file) //выдает 1 статью
 	$article = [];
 	$fopen = fopen($path_to_file, 'r');
 	if ($fopen) {
-		$article['article_name'] = fgets($fopen); //Название статьи - первая строка файла
-		$tmp_text = file_get_contents($path_to_file);
-		$article['article_text'] = mb_substr($tmp_text, mb_strlen($article['article_name'])); //Вырезаем 1ю строку
+		$article['article_name'] = fgets($fopen); //Название статьи
+		$article['creation_date'] = fgets($fopen); //Дата создания файла
+		$article['article_text'] = fgets($fopen); //Текст статьи
+		// $tmp_text = file_get_contents($path_to_file);
+		// $article['article_text'] = mb_substr($tmp_text, mb_strlen($article['article_name'])); //Вырезаем 1ю строку
 		fclose($fopen);	        		
 	} else { /* ошибка чтения файла */ }
 	$article['modification_date'] = date('Y-m-d', filemtime($path_to_file)); //Дата изменения файла
-	$article['creation_date'] = date('Y-m-d', filectime($path_to_file)); //Дата создания файла (работает некорректно на UNIX)
 
 	return $article;
 }
 
 function save_article($path_to_articles) //сохраняет статью
 {
-	$new_f_name = (get_files_count($path_to_articles)+1).'.txt'; //задает новое имя
-	$article_name =  $_POST['article_name'];
-	// Объединяем Название статьи и текст
-	$article = $article_name."\n".str_replace("\n",'<br>',file_get_contents($_FILES['file']['tmp_name']));
-	$result = file_put_contents($path_to_articles.'/'.$new_f_name, $article);
-	
-	return $result;
+	if (empty($_POST['article_name'])) {
+	 	$_SESSION['msg'] = ['error'=>1,'txt'=>'Заполните Название статьи'];
+		header('Location: index.php?add_article=1');
+	} elseif (empty($_FILES['file']['name']) && empty($_POST['article_text'])) {
+		$_SESSION['msg'] = ['error'=>1,'txt'=>'Загрузите файл ИЛИ заполните текст статьи'];
+		header('Location: index.php?add_article=1');
+	} elseif (!empty($_FILES['file']['name']) && !empty($_POST['article_text'])) { // Если загрузили И файл И текст
+		$_SESSION['msg'] = ['error'=>1,'txt'=>'Загрузите файл ИЛИ заполните текст статьи.'];
+		header('Location: index.php?add_article=1');
+	} elseif (empty($_POST['article_text']) && $_FILES['file']['type'] != 'text/plain') {
+		$_SESSION['msg'] = ['error'=>1,'txt'=>'Неверный формат файла. Загрузите txt файл'];
+		header('Location: index.php?add_article=1');
+	} else {
+		if (!empty($_FILES['file']['name']) && empty($_POST['article_text'])) { //загрузили файл
+			$file = $_FILES['file']['tmp_name'];
+			$text = str_replace("\n",'<br>',file_get_contents($file)); //Заменяем переводы строк на <br>
+		} elseif (empty($_FILES['file']['name']) && !empty($_POST['article_text'])) { //Заполнили текст
+			$text = str_replace("\n",'<br>',$_POST['article_text']); //Заменяем переводы строк на <br>
+		} else { /* Еще варианты? */ }
+		$article_name =  $_POST['article_name']; // Название статьи
+		$new_f_name = (get_files_count($path_to_articles)+1).'.txt'; //задает новое имя
+		$creation_date = date('Y-m-d', time()); //Дата создания файла
+		// Объединяем Название статьи, дату создания файла  и текст
+		$article = $article_name."\n".$creation_date."\n".$text;
+		$result = file_put_contents($path_to_articles.'/'.$new_f_name, $article);
+		if ($result) $_SESSION['msg'] = ['success'=>1, 'txt'=>'Статья успешно добавлена'];
+		else $_SESSION['msg'] = ['error'=>1, 'txt'=>'Ошибка добавления статьи'];
+		header('Location: index.php');
+	}
 }
 
 function delete_article($path_to_articles) //удаляет статью
@@ -82,6 +107,17 @@ function delete_article($path_to_articles) //удаляет статью
 	$result = unlink($path_to_articles.'/'.$f_name);
 	
 	return $result;
+}
+
+function if_msg()
+{
+	if (!empty($_SESSION['msg'])) { 
+		if (!empty($_SESSION['msg']['success'])) $class=' class="success" ';
+		elseif (!empty($_SESSION['msg']['error'])) $class=' class="error" ';
+		else $class=''; ?> 
+		<p <?=$class;?> ><?=$_SESSION['msg']['txt'];?></p> <?php
+		unset($_SESSION['msg']);
+	}
 }
 
 //РОУТИНГ
@@ -101,11 +137,7 @@ if ($show) { //вывод 1 статьи
 	$title .= ' | Добавление новой статьи';
 	$h1 = 'Добавление статьи';
 } elseif ($add_form) { //Обработка формы (добавление статьи)
-	$result = save_article($path_to_articles);
-	if ($result) $_SESSION['msg'] = ['success'=>1, 'txt'=>'Статья успешно добавлена'];
-	else $_SESSION['msg'] = ['error'=>1, 'txt'=>'Ошибка добавления статьи'];
-	// echo '<pre>'; var_dump($_POST); die();
-	header('Location: index.php'); //передресация на Главную, иначе работает некорректно 
+	save_article($path_to_articles);
 } elseif ($delete) {
 	$result = delete_article($path_to_articles);
 	if ($result) $_SESSION['msg'] = ['success'=>1, 'txt'=>'Статья успешно удалена'];
@@ -115,7 +147,7 @@ if ($show) { //вывод 1 статьи
 	$h1 = 'Статьи';
 	$page = isset($_GET['page']) ? $_GET['page'] : 1;
 	//$page = $_GET['page'] ?? 1; // $page = $_GET['page'] если он установлен, иначе = 1
-	$per_page = 10; //число статей на страницу
+	$per_page = 5; //число статей на страницу
 	$articles = get_articles_list($path_to_articles, $page, $per_page);
 	$articles_count = get_files_count($path_to_articles); //Всего статей
 	$numb_of_pages = ceil($articles_count/$per_page); //количество страниц
@@ -126,7 +158,52 @@ if ($show) { //вывод 1 статьи
 <head>
   <meta charset="UTF-8">
   <title><?=$title?></title>
-  <link rel="stylesheet" href="style.css">
+  <!-- <link rel="stylesheet" href="style.css"> -->
+	<style>
+		html{min-height: 100%;}
+		html, body{
+		display: flex; 
+		flex-direction: column; 
+		padding:0; 
+		margin:0;
+		}
+		body{flex: auto;font-family: 'Open Sans', sans-serif;}
+		#header, #main{
+		width: 100%;
+		max-width: 1520px;
+		min-width: 430px;
+		margin:auto;
+		box-sizing: border-box;
+		}
+		#header a{text-decoration:none;}
+		#header a:hover>h1{color:blue;}
+		#main {flex-grow: 1;display: flex;}
+		#main .middle{flex-grow:1;max-width:80%;padding:25px;}
+		#main .right{
+		flex-grow: 1;
+		min-width: 200px;
+		max-width:20%;
+		padding: 25px 0;
+		}
+		h1{padding:0 25px;margin-bottom:0;color:black;}
+		.pag-active{background: yellow;}
+		.delete{margin-left: 25px;}
+		.success{
+		border:3px solid green;
+		box-sizing:border-box;
+		background:#46ec46;
+		margin:0 0 10px;
+		padding:5px;
+		}
+		.error{
+		border:3px solid red;
+		box-sizing:border-box;
+		background:#e95a5a;
+		margin:0 0 10px;
+		padding:5px;
+		}
+		.arrow{width: 15px;margin-right: 8px;}
+	</style>
 </head>
 <body>
 	<div id="header">
@@ -146,11 +223,16 @@ if ($show) { //вывод 1 статьи
 			<p><?=$article['article_text']?></p>
 			<?php
 			} elseif ($add) { // Добавление новой статьи
+				if_msg(); // Сообщения об успехе/ошибке
 			?>
 				<form enctype="multipart/form-data" method="POST" action="index.php">
 					<label>
 						Название статьи:<br>
 						<input name="article_name" type="text">
+					</label><br>
+					<label>
+						Текст статьи<br>
+						<textarea name="article_text" cols="100" rows="30"></textarea>
 					</label><br>
 					<label>
 						Файл<br>
@@ -160,15 +242,9 @@ if ($show) { //вывод 1 статьи
 				</form>
 			<?php
 			} elseif ($main) { // вывод Главной страницы
-				// Сообщения об успехе/ошибке
-				if (!empty($_SESSION['msg'])) { 
-					if (!empty($_SESSION['msg']['success'])) $class=' class="success" ';
-					elseif (!empty($_SESSION['msg']['error'])) $class=' class="error" ';
-					else $class=''; ?> 
-					<p <?=$class;?> ><?=$_SESSION['msg']['txt'];?></p> <?php
-					unset($_SESSION['msg']);
-				}
+				if_msg(); // Сообщения об успехе/ошибке
 				foreach ($articles as $article) { ?>
+					<img class="arrow" src="https://cdn0.iconfinder.com/data/icons/feather/96/591276-arrow-right-64.png" alt="стрелка">
 					<a href="index.php?show=<?=$article['f_name'];?>"><?=$article['article_name'];?></a><a class="delete" href="index.php?delete=<?=$article['f_name'];?>">Удалить</a><br>
 				<?php } //ПАГИНАЦИЯ ?>
 				<p>Страницы: 
