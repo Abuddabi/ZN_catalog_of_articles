@@ -10,6 +10,12 @@ define('ROOT_DIR', dirname(__FILE__));
 $path_to_articles = ROOT_DIR . '/texts';
 $title = 'Каталог статей';
 
+function out($arg)
+{
+	echo '<pre>'; print_r($arg); die();
+
+}
+
 function get_articles_list($path_to_articles, $page, $per_page = 10) //выдает список статей на Главную
 {	
 	//ПАГИНАЦИЯ
@@ -17,21 +23,22 @@ function get_articles_list($path_to_articles, $page, $per_page = 10) //выда�
 	$start = ($page-1)*$per_page;
 	// $finish = $start+$per_page-1;
 	$articles = [];
-	if ($handle = opendir($path_to_articles)) {
-	    while (false !== ($entry = readdir($handle))) {
+	if ($dir = opendir($path_to_articles)) {
+	    while (false !== ($entry = readdir($dir))) {
 	        if ($entry != '.' && $entry != '..') {
 	        	$fopen = fopen($path_to_articles.'/'.$entry, 'r');
 	        	if ($fopen) {
-	        		$modification_date = filemtime($path_to_articles.'/'.$entry); //Дата изменения файла
-	        		$articles[$modification_date]['f_name'] = $entry; //название файла
-	        		$articles[$modification_date]['article_name'] = fgets($fopen); //Название статьи - первая строка файла 
+	        		//ключ элемента - название файла
+	        		$articles[$entry]['modification_date'] = filemtime($path_to_articles.'/'.$entry); //Дата изменения файла
+	        		$articles[$entry]['article_name'] = fgets($fopen); //Название статьи - первая строка файла 
+	        		$articles[$entry]['creation_date'] = fgets($fopen); //Дата создания файла
 	        		fclose($fopen);
 	        	} else { /* ошибка чтения файла */ }
 	        } else { /* ничего не делать */ }
 	    }
-	    closedir($handle);
+	    closedir($dir);
 	} else { /* ошибка открытия папки */ }
-	krsort($articles); //массив статей, отсортированный по дате изменения в порядке убывания (недавно измененные - первые)
+	array_multisort(array_column($articles, 'modification_date'), SORT_DESC, $articles); //массив статей, отсортированный по дате изменения в порядке убывания (недавно измененные - первые)
 	$articles = array_slice($articles, $start, $per_page); //оcтавляем только 10 записей
 
 	return $articles;
@@ -187,7 +194,8 @@ if ($show) { //вывод 1 статьи
 		}
 		h1{padding:0 25px;margin-bottom:0;color:black;}
 		.pag-active{background: yellow;}
-		.delete{margin-left: 25px;}
+		.delete{margin-left: 28px;}
+		.creation_date{margin-left: 8px;}
 		.success{
 		border:3px solid green;
 		box-sizing:border-box;
@@ -243,9 +251,11 @@ if ($show) { //вывод 1 статьи
 			<?php
 			} elseif ($main) { // вывод Главной страницы
 				if_msg(); // Сообщения об успехе/ошибке
-				foreach ($articles as $article) { ?>
+				foreach ($articles as $f_name => $article) { ?>
 					<img class="arrow" src="https://cdn0.iconfinder.com/data/icons/feather/96/591276-arrow-right-64.png" alt="стрелка">
-					<a href="index.php?show=<?=$article['f_name'];?>"><?=$article['article_name'];?></a><a class="delete" href="index.php?delete=<?=$article['f_name'];?>">Удалить</a><br>
+					<a href="index.php?show=<?=$f_name;?>"><?=$article['article_name'];;?></a>
+					<span class="creation_date" ><?=$article['creation_date'];?></span>
+					<a class="delete" href="index.php?delete=<?=$article['f_name'];?>">Удалить</a><br>
 				<?php } //ПАГИНАЦИЯ ?>
 				<p>Страницы: 
 				<?php 
