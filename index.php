@@ -255,7 +255,7 @@ if ($show) { //вывод 1 статьи
 					<img class="arrow" src="https://cdn0.iconfinder.com/data/icons/feather/96/591276-arrow-right-64.png" alt="стрелка">
 					<a href="index.php?show=<?=$f_name;?>"><?=$article['article_name'];;?></a>
 					<span class="creation_date" ><?=$article['creation_date'];?></span>
-					<a class="delete" href="index.php?delete=<?=$article['f_name'];?>">Удалить</a><br>
+					<a class="delete" href="index.php?delete=<?=$f_name;?>">Удалить</a><br>
 				<?php } //ПАГИНАЦИЯ ?>
 				<p>Страницы: 
 				<?php 
